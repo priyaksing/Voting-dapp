@@ -1,101 +1,217 @@
+"use client"
+import React, { useState, useEffect } from "react";
+import CandidateList from "./components/CandidateList"
+import VotingForm from "./components/VotingForm"
+import ResultDisplay from "./components/ResultDisplay"
+import abi from "/context/Voting.json";
 import Image from "next/image";
+import { ethers } from "ethers";
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="https://nextjs.org/icons/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.js
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="https://nextjs.org/icons/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  // Contract address of the deployed smart contract
+  const contractAddress = "0x70f41A6A442CFAAbE65BB8230762D2d19736Aef3";
+  const ABI = abi.abi;
+
+  const [currentAccount, setCurrentAccount] = useState("");
+  const [candidates, setCandidates] = useState([]);
+  const [winner, setWinner] = useState([]);
+  const [index, setIndex] = useState('');
+  const [alreadyVoted, setAlreadyVoted] = useState(false);
+
+  /**
+   * @dev Handle input change of candidate index
+   */
+  const onIndexChange = (e) => {
+    setIndex(e.target.value);
+  }
+
+
+  /**
+   * @dev Check if metamask is installed.
+   * If installed, connects to the Metamask account and sets the current account.
+   */
+  const connectWallet = async () => {
+    try {
+
+      const { ethereum } = window;
+      if (ethereum) {
+        const account = await ethereum.request({
+          method: "eth_requestAccounts"
+        });
+
+        setCurrentAccount(account[0]);
+      }
+      else {
+        console.log("Please install Metamask");
+      }
+
+    } catch (error) {
+      console.log(error);
+    }
+  }
+
+
+  /**
+   * Creates an instance of the smart contract using contract address, ABI and signer.
+   * Using the instance, calls getCandidates() method in the contract to retrieve the list of candidates and formats them.
+   * Sets variable 'candidates' with retrieved list.
+   */
+  const getCandidates = async () => {
+    try {
+
+      if (window.ethereum) {
+        const provider = new ethers.BrowserProvider(ethereum, "any");
+        const signer = await provider.getSigner();
+        const votingDapp = new ethers.Contract(contractAddress, ABI, signer);
+
+        const candidateList = await votingDapp.getCandidates();
+        // await candidateList.wait();
+
+        const formattedList = candidateList.map((candidate, index) => {
+          return {
+            index: index,
+            name: candidate.name,
+            votes: Number(candidate.votingCount)
+          }
+        });
+
+        setCandidates(formattedList);
+
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  }
+
+
+  /**
+   * Creates an instance of the smart contract using contract address, ABI and signer.
+   * Calls vote() in the contract with the index of the candidate as parameter. 
+   * Invokes votingStatus() to retrieve the voting status of voter
+   */
+  const voteCandidate = async () => {
+    try {
+
+      if (window.ethereum) {
+        const provider = new ethers.BrowserProvider(ethereum, "any");
+        const signer = await provider.getSigner();
+        const votingDapp = new ethers.Contract(contractAddress, ABI, signer);
+
+        const voteTxn = await votingDapp.vote(index);
+        await voteTxn.wait();
+        console.log("Voted", voteTxn.hash);
+        votingStatus();
+        alert(`Voted successfully! : ${voteTxn.hash}`);
+      }
+    } catch (error) {
+      console.log(error.reason);
+    }
+  }
+
+
+  /**
+   * Calls method getVotingStatus() in the contract to retrieve the signer's voting status and set the variable 'alreadyVoted' accordingly.
+   */
+  const votingStatus = async () => {
+    try {
+
+      if (window.ethereum) {
+        const provider = new ethers.BrowserProvider(ethereum, "any");
+        const signer = await provider.getSigner();
+        const votingDapp = new ethers.Contract(contractAddress, ABI, signer);
+
+        const voteStatus = await votingDapp.getVotingStatus();
+        setAlreadyVoted(voteStatus);
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  }
+
+
+  /**
+   * Calls the getResults() method in the contract to retrieve the winner and formats them.
+   * Filters out the result to remove empty values.
+   * Sets the 'winner' variable
+   */
+  const getResults = async () => {
+    try {
+
+      if (window.ethereum) {
+        const provider = new ethers.BrowserProvider(ethereum, "any");
+        const signer = await provider.getSigner();
+        const votingDapp = new ethers.Contract(contractAddress, ABI, signer);
+
+        const results = await votingDapp.getResults();
+        // await results.wait();
+        let formattedResults = results.map((candidate) => {
+          return {
+            name: candidate.name,
+            votes: Number(candidate.votingCount)
+          }
+        })
+
+        formattedResults = formattedResults.filter((result) => {
+          return result.name != '';
+        })
+
+        setWinner(formattedResults);
+
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  }
+
+  /**
+   * Invokes the below functions on the first render and everytime 'winner' and 'alreadyVoted' are updated.
+   */
+  useEffect(() => {
+
+    getCandidates();
+    votingStatus();
+    getResults();
+
+  }, [winner, alreadyVoted]);
+
+
+  /**
+   * If current account is set, then display the form and result.
+   * Else, display the connect wallet button.
+   */
+  return (
+    <div className="text-white flex flex-col items-center justify-center py-8 gap-y-5">
+      <h1 className="flex justify-center items-center w-full text-2xl tracking-widest font-semibold m-5 pt-2">
+        WELCOME TO THE DECENTRALIZED VOTING APP
+      </h1>
+
+      {currentAccount ? (
+        <div className="flex flex-col w-full justify-center items-center gap-y-5 pb-5">
+          <VotingForm
+            candidates={candidates}
+            index={index}
+            onIndexChange={onIndexChange}
+            voteCandidate={voteCandidate}
+            alreadyVoted={alreadyVoted}
+          />
+
+          <CandidateList
+            candidates={candidates}
+          />
+
+          <ResultDisplay
+            winner={winner}
+          />
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+      ) : (
+        <button
+          onClick={connectWallet}
+          className='text-white bg-blue-400 px-4 py-2 mt-3 rounded-sm w-1/5'>
+          Connect Wallet
+        </button>
+      )}
+
     </div>
-  );
+  )
 }
