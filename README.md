@@ -3,7 +3,7 @@
 This is a decentralized application to implement voting using Solidity, Ethers.js and NextJS. This smart contract is deployed on Sepolia Test Network.
 
 
-### Installation
+## Installation
 
 After you cloned the repository, install the packages using
 
@@ -34,3 +34,17 @@ Finally run command
 ```shell
 npm run dev
 ```
+
+## File Structure
+
+Smart contract -> contracts\Voting.sol
+
+Frontend -> src\app\page.js
+
+Components -> src\app\components
+
+Contract ABI -> context\Voting.json
+
+Deployment script -> scripts\deploy.js
+
+Hardhat Config -> hardhat.config.js
